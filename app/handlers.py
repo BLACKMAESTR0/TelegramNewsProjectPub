@@ -1,4 +1,5 @@
 from aiogram import F, Router
+from aiogram import types
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery, InputMediaPhoto
 from aiogram.fsm.context import FSMContext
@@ -12,6 +13,22 @@ import asyncio
 main_photo_path = MAIN_PHOTO_PATH
 router = Router()
 
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F1E0-\U0001F1FF"  # Флаги (региональные индикаторы)
+    "\U0001F300-\U0001F5FF"  # Символы и пиктограммы
+    "\U0001F600-\U0001F64F"  # Эмодзи-смайлики
+    "\U0001F680-\U0001F6FF"  # Транспорт и символы
+    "\U0001F700-\U0001F77F"  # Алхимические символы
+    "\U0001F780-\U0001F7FF"  # Дополнительные геометрические символы
+    "\U0001F800-\U0001F8FF"  # Символы для игр
+    "\U0001F900-\U0001F9FF"  # Символы супплементов (дополнений)
+    "\U0001FA00-\U0001FA6F"  # Дополнительные символы для игр
+    "\U0001FA70-\U0001FAFF"  # Символы объектов
+    "\U00002702-\U000027B0"  # Разное
+    "\U000024C2-\U0001F251"
+    "]+"
+)
 
 async def excape_markdownV2(text):
     special_characters = r'[_*[\]()~`>#+\-=|{}.!]'
@@ -35,9 +52,11 @@ async def notes_menu(event, data, page):
     if data:
         listOfArticles = data.split(NOTES_SEP)
     if isinstance(event, Message):
+
         await event.answer(text='Доступные заметки:', reply_markup=await kb.notes_builder(listOfArticles, page=page))
         return
     if isinstance(event, CallbackQuery):
+
         await event.message.edit_text(text='Доступные заметки:', reply_markup=await kb.notes_builder(listOfArticles,
                                                                                                      page=page))
         await event.answer()
@@ -123,14 +142,18 @@ async def close_call_toMenu(callback: CallbackQuery):
 async def add_note(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.set_state(Notes.article)
-    await callback.message.answer("Введите заголовок:", reply_markup=kb.keyboard_back_from_add_note)
+    await callback.message.edit_text("Введите заголовок:", reply_markup=kb.keyboard_back_from_add_note_sec)
 
 
 @router.message(Notes.article)
 async def add_content(message: Message, state: FSMContext):
-    await state.update_data(article=message.text)
-    await state.set_state(Notes.content)
-    await message.answer("Введите заметку:")
+    if len(f"notes_article_*{message.text}*".encode('utf-8')) > 64:
+        await message.answer("Пожалуйста, сделайте заголовок поменьше.")
+    else:
+        await state.update_data(article=message.text)
+        await state.set_state(Notes.content)
+        await message.answer("Введите заметку:")
+
 
 @router.message(Notes.content)
 async def demo_add(message: Message, state: FSMContext):
@@ -141,10 +164,15 @@ async def demo_add(message: Message, state: FSMContext):
     contentForMess = await excape_markdownV2(content)
     articleForMess = f"*{await excape_markdownV2(article)}*"
 
-    await state.update_data(content=contentForMess, article=articleForMess)
+    if len(articleForMess) + len(contentForMess) < 4096:
+        await state.update_data(content=contentForMess, article=articleForMess)
 
-    mess = f"{articleForMess}\n{contentForMess}"
-    await message.answer(mess, parse_mode="MarkdownV2", reply_markup=kb.keyboard_add_or_no_not)
+        mess = f"{articleForMess}\n{contentForMess}"
+
+        await message.answer(mess, parse_mode="MarkdownV2", reply_markup=kb.keyboard_add_or_no_not)
+    else:
+        await message.answer("Привышен лимит символов в заметке.")
+        await add_content(message, state)
 
 @router.callback_query(F.data == "add_note_bd")
 async def add_note_bd(callback: CallbackQuery, state: FSMContext):
@@ -387,7 +415,11 @@ async def profile_print(message: Message):
     await message.answer(text=f"Ваше имя: *{data.name}*\nВаши предпочтения: *{data.best_cat.replace(';', ', ')}*",
                          parse_mode="MarkdownV2")
 
-
+@router.message(F.sticker)
+async def stickerF(message: Message):
+    await message.answer("Прикольный стикер!")
+    await message.answer("Извините, я не понимаю, что вы имеете ввиду.\nВыберите интересующий пункт меню.",
+                         reply_markup=kb.main_keyboard)
 @router.message(CommandStart())
 async def start(message: Message):
     await message.answer(

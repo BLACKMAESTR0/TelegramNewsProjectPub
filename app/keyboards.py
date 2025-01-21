@@ -28,11 +28,15 @@ keyboard_scrolling_searched = InlineKeyboardMarkup(inline_keyboard=[
 
 
 async def notes_builder(listOfArticles, page=0, maxOnPage=5):
+
     keyboard = InlineKeyboardBuilder()
     start = page * maxOnPage
     end = (page + 1) * maxOnPage
     for i, article in enumerate(listOfArticles[start:end]):
         newOne = f"{(i+1)+page*maxOnPage}. {article.replace('*','')}"
+        if len(newOne) > 30:
+            newOne = newOne[:30] + "..."
+
         keyboard.add(InlineKeyboardButton(text=newOne, callback_data="notes_article_" + article))
 
     navi_buttons = []
@@ -46,10 +50,15 @@ async def notes_builder(listOfArticles, page=0, maxOnPage=5):
 
     keyboard.add(InlineKeyboardButton(text="Добавить заметку", callback_data="add_note"))
     keyboard.add(InlineKeyboardButton(text="В меню 📌", callback_data="back_to_menu"))
+
     return keyboard.adjust(1).as_markup()
 
 keyboard_back_from_add_note = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Удалить", callback_data="delete_note")],
+    [InlineKeyboardButton(text="Назад", callback_data="menu_notes")]
+])
+
+keyboard_back_from_add_note_sec = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Назад", callback_data="menu_notes")]
 ])
 

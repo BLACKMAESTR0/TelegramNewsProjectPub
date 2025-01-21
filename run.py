@@ -23,7 +23,7 @@ def signal_handler(signal, frame):
 
 async def run_schedule():
     while True:
-        await asyncio.sleep(5400)
+        await asyncio.sleep(28800)
         await rq.parse_news()
         try:
             await rq.process_news()
